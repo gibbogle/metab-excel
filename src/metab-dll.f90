@@ -25,7 +25,8 @@ chemo(OXYGEN)%name = 'Oxygen'
 chemo(GLUCOSE)%name = 'Glucose'
 chemo(LACTATE)%name = 'Lactate'
 chemo(GLUTAMINE)%name = 'Glutamine'
-do ichemo = 1,4
+chemo(OTHERNUTRIENT)%name = 'OtherNutrient'
+do ichemo = 1,DRUG_A-1
 	chemo(ichemo)%present = .true.
 	chemo(ichemo)%used = .true.
 	chemo(ichemo)%decay_rate = 0
@@ -85,26 +86,28 @@ N_GlnA = param(6)
 N_GI = param(7)
 N_PI = param(8)
 N_GlnI = param(9)
-N_PO = param(10)
-N_GlnO = param(11)
-K_H1 = param(12)
-K_H2 = param(13)
-K_HB = param(14)
-K_PDK = param(15)
-PDKmin = param(16)
-C_O2_norm = param(17)
-C_G_norm = param(18)
-C_Gln_norm = param(19)
-C_L_norm = param(20)
-f_N = param(21)
-f_ATPs = param(22)
-f_ATPg = param(23)
-f_ATPramp = param(24)
-K_PL = param(25)
-K_LP = param(26)
-Hill_Km_P = param(27)
-Hill_Km_C = param(28)
-Gln_baserate = param(29)
+N_ONI = param(10)
+N_PO = param(11)
+N_GlnO = param(12)
+K_H1 = param(13)
+K_H2 = param(14)
+K_HB = param(15)
+K_PDK = param(16)
+PDKmin = param(17)
+C_O2_norm = param(18)
+C_G_norm = param(19)
+C_Gln_norm = param(20)
+C_L_norm = param(21)
+C_ON_norm = param(22)
+f_N = param(23)
+f_ATPs = param(24)
+f_ATPg = param(25)
+f_ATPramp = param(26)
+K_PL = param(27)
+K_LP = param(28)
+Hill_Km_P = param(29)
+Hill_Km_C = param(30)
+Gln_baserate = param(31)
 Hill_N_P = 1
 Hill_Km_P = Hill_Km_P/1000		! uM -> mM 
 
@@ -113,20 +116,27 @@ write(nflog,*)
 chemo(OXYGEN)%bdry_conc = chem(1)
 chemo(OXYGEN)%MM_C0 = chem(2)
 chemo(OXYGEN)%max_cell_rate = chem(3)
-chemo(OXYGEN)%Hill_N = int(chem(4))
+chemo(OXYGEN)%Hill_N = chem(4)
 chemo(GLUCOSE)%bdry_conc = chem(5)
 chemo(GLUCOSE)%MM_C0 = chem(6)
 chemo(GLUCOSE)%max_cell_rate = chem(7)
-chemo(GLUCOSE)%Hill_N = int(chem(8))
+chemo(GLUCOSE)%Hill_N = chem(8)
 chemo(LACTATE)%bdry_conc = chem(9)
 chemo(LACTATE)%MM_C0 = chem(10)
 chemo(LACTATE)%max_cell_rate = chem(11)
-chemo(LACTATE)%Hill_N = int(chem(12))
+chemo(LACTATE)%Hill_N = chem(12)
 ! glutamine
 chemo(GLUTAMINE)%bdry_conc = max(0.0001,chem(13))
 chemo(GLUTAMINE)%MM_C0 = chem(14)
 chemo(GLUTAMINE)%max_cell_rate = chem(15)
-chemo(GLUTAMINE)%Hill_N = int(chem(16))
+chemo(GLUTAMINE)%Hill_N = chem(16)
+!write(nflog,*) 'Glutamine: MM_CO,Hill_N: ',chemo(GLUTAMINE)%MM_C0,chemo(GLUTAMINE)%Hill_N
+! other nutrient
+chemo(OTHERNUTRIENT)%bdry_conc = max(0.0001,chem(17))
+chemo(OTHERNUTRIENT)%MM_C0 = chem(18)
+chemo(OTHERNUTRIENT)%max_cell_rate = chem(19)
+chemo(OTHERNUTRIENT)%Hill_N = chem(20)
+!write(nflog,*) 'ON: MM_CO,Hill_N,maxrate: ',chemo(OTHERNUTRIENT)%MM_C0,chemo(OTHERNUTRIENT)%Hill_N,chemo(OTHERNUTRIENT)%max_cell_rate
 !C_Gn_test = chem(13)
 !Hill_Km_Gln = chem(14)/1000		! uM -> mM
 !Gn_maxrate = chem(15)*1.0e6
@@ -139,7 +149,7 @@ end subroutine
 
 !--------------------------------------------------------------------------
 !--------------------------------------------------------------------------
-subroutine setup
+subroutine setup(ok)
 use global
 use metabolism
 integer :: kcell
@@ -160,6 +170,7 @@ call SetupChemo
 mp => metabolic
 call SetupMetabolism(mp, ok)
 !write(nflog,*) 'r_Ou,C_P: ',r_Ou,mp%C_P
+if (.not.ok) return
 
 kcell = 1
 rsite = [0.,0.,0.]
@@ -168,6 +179,7 @@ Caverage(OXYGEN) = chemo(OXYGEN)%bdry_conc
 Caverage(GLUCOSE) = chemo(GLUCOSE)%bdry_conc
 Caverage(LACTATE) = chemo(LACTATE)%bdry_conc
 Caverage(GLUTAMINE) = chemo(GLUTAMINE)%bdry_conc
+Caverage(OTHERNUTRIENT) = chemo(OTHERNUTRIENT)%bdry_conc
 end subroutine
 
 !-----------------------------------------------------------------------------------------
@@ -236,6 +248,8 @@ cp%Cin(OXYGEN) = chemo(OXYGEN)%bdry_conc
 cp%Cin(GLUCOSE) = chemo(GLUCOSE)%bdry_conc
 cp%Cin(LACTATE) = chemo(LACTATE)%bdry_conc
 cp%Cin(GLUTAMINE) = chemo(GLUTAMINE)%bdry_conc
+cp%Cin(OTHERNUTRIENT) = chemo(OTHERNUTRIENT)%bdry_conc
+!write(nflog,*) 'cp%Cin(OTHERNUTRIENT): ',cp%Cin(OTHERNUTRIENT)
 end subroutine
 
 !--------------------------------------------------------------------------
@@ -250,11 +264,12 @@ real(REAL_KIND) :: CC(ng), r_An
 !real(REAL_KIND) :: Grate(ng), Arate(ng), Irate(ng), Prate(ng), Lrate(ng), Orate(ng)
 type(metabolism_type) :: mpArr(ng)
 integer :: ityp, i, no, k
-real(REAL_KIND) :: C_G, C_O, C_L, C_Gln, C(4), MM_O2, r_G
+real(REAL_KIND) :: C_G, C_O, C_L, C_Gln, C_ON, C(5), MM_O2, r_G
 character*(64) :: infile, outfile
 type(cell_type), pointer :: cp
 type(metabolism_type), pointer :: mp
-logical :: dbug
+logical :: ok, dbug
+integer :: res
 
 from_excel = (ixl == 1 )
 !dbug = (abs(chem(1) - 0.01) < 0.0001)
@@ -269,19 +284,26 @@ else
 	infile = 'metab.inp'
 	call setup_from_file(infile)
 endif
-call setup
+call setup(ok)
+if (.not.ok) then
+    close(nflog)
+    return
+endif
 
 cp => cell_list(1)
+!write(nflog,*) 'cp%Cin(OTHERNUTRIENT): ',cp%Cin(OTHERNUTRIENT)
 mp => cp%metab
 ityp = cp%celltype
 fgp_solver = isolver
-write(nflog,*) 'use_glutamine: ',use_glutamine
+!write(nflog,*) 'use_glutamine: ',use_glutamine
+write(nflog,*) 'icase: ',icase
 !write(nflog,*) 'isolver,C_P,O_rate: ',isolver,mp%C_P,mp%O_rate
 if (icase == 1) then	!Fix C_O, C_Gln vary C_G
 	! set HIF1, PDK1 to steady-state levels
 	mp%HIF1 = get_HIF1steadystate(cp%Cin(OXYGEN))
 	call analyticSetPDK1(mp%HIF1, mp%PDK1, 1.0d10)
 	MM_O2 = f_MM(cp%Cin(OXYGEN),Hill_Km_O2,int(Hill_N_O2))
+!write(nflog,*) 'icase=1: cp%Cin(OTHERNUTRIENT): ',cp%Cin(OTHERNUTRIENT)
 	write(nflog,'(13a12)') 'C_G','Arate','Irate','Grate','Glnrate','Prate','Lrate','Orate','f_G','f_P','HIF1','fPDK','C_P'
 	mp%O_rate = r_Ou
 	do i = ng,1,-1
@@ -289,14 +311,17 @@ if (icase == 1) then	!Fix C_O, C_Gln vary C_G
 		C_G = i*dC
 		C_L = cp%Cin(LACTATE)
 		C_Gln = cp%Cin(GLUTAMINE)
-		C = [C_O, C_G, C_L, C_Gln]
+		C_ON = cp%Cin(OTHERNUTRIENT)
+!write(nflog,*) 'C_ON: ',C_ON
+		C = [C_O, C_G, C_L, C_Gln, C_ON]
         mp%recalcable = -1
 		if (use_nitrogen) then
-    		call f_metab(mp, C_O, C_G, C_L, C_Gln)
+    		call f_metab(mp, C, res)
+    		if (res /= 0) exit
 		else
 		    call set_f_gp(mp,C)
 		    if (.not.solved) then
-    		    call f_metab(mp, C_O, C_G, C_L, C_Gln)
+    		    call f_metab(mp, C, res)
     	    endif
     	endif
 		write(nflog,'(13e12.3)') C_G,mp%A_rate,mp%I_rate,mp%G_rate,mp%Gln_rate,mp%P_rate,mp%L_rate,mp%O_rate,mp%f_G,mp%f_P,mp%HIF1,mp%PDK1,mp%C_P
@@ -319,16 +344,18 @@ elseif (icase == 2) then	!Fix C_O, C_Gln vary C_G
 		C_G = cp%Cin(GLUCOSE)
 		C_L = cp%Cin(LACTATE)
 		C_Gln = i*dC
-		C = [C_O, C_G, C_L, C_Gln]
+		C_ON = cp%Cin(OTHERNUTRIENT)
+		C = [C_O, C_G, C_L, C_Gln, C_ON]
         mp%recalcable = -1
 		if (use_nitrogen) then
 !	        r_G = get_glycosis_rate(mp%HIF1,C_G,C_Gln,mp%O_rate)  ! Note: this is the previous O_rate
 !		    call set_param_set(r_G,C_L)
-    		call f_metab(mp, C_O, C_G, C_L, C_Gln)
+    		call f_metab(mp, C, res)
+    		if (res /= 0) exit
 		else
 		    call set_f_gp(mp,C)
 		    if (.not.solved) then
-    		    call f_metab(mp, C_O, C_G, C_L, C_Gln)
+    		    call f_metab(mp, C, res)
     	    endif
     	endif
 		write(nflog,'(13e12.3)') C_Gln,mp%A_rate,mp%I_rate,mp%G_rate,mp%Gln_rate,mp%P_rate,mp%L_rate,mp%O_rate,mp%f_G,mp%f_P,mp%HIF1,mp%PDK1,mp%C_P
@@ -347,16 +374,18 @@ elseif (icase == 3) then	!Fix C_G, C_Gln vary C_O
 		C_O = i*dC
 		C_L = cp%Cin(LACTATE)
 		C_Gln = cp%Cin(GLUTAMINE)
-		C = [C_O, C_G, C_L, C_Gln]
+		C_ON = cp%Cin(OTHERNUTRIENT)
+		C = [C_O, C_G, C_L, C_Gln, C_ON]
 		mp%HIF1 = get_HIF1steadystate(C_O)
 		call analyticSetPDK1(mp%HIF1, mp%PDK1, 1.0d10)
         mp%recalcable = -1
 		if (use_nitrogen) then
-    		call f_metab(mp, C_O, C_G, C_L, C_Gln)
+    		call f_metab(mp, C, res)
+    		if (res /= 0) exit
 		else
 		    do k = 1,2
 		    call set_f_gp(mp,C)
-		    call f_metab(mp, C_O, C_G, C_L, C_Gln)
+		    call f_metab(mp, C, res)
 		    enddo
 		endif
 		write(nflog,'(13e12.3)') C_O,mp%A_rate,mp%I_rate,mp%G_rate,mp%Gln_rate,mp%P_rate,mp%L_rate,mp%O_rate,mp%f_G,mp%f_P,mp%HIF1,mp%PDK1,mp%C_P
@@ -371,15 +400,17 @@ elseif (icase == 4) then	!Fix C_O, vary C_G and C_Gln
 		C_O = cp%Cin(OXYGEN)
 		C_L = cp%Cin(LACTATE)
 		C_Gln = i*dC
-		C = [C_O, C_G, C_L, C_Gln]
+		C_ON = cp%Cin(OTHERNUTRIENT)
+		C = [C_O, C_G, C_L, C_Gln, C_ON]
 		mp%HIF1 = get_HIF1steadystate(C_O)
 		call analyticSetPDK1(mp%HIF1, mp%PDK1, 1.0d10)
         mp%recalcable = -1
 		if (use_nitrogen) then
-    		call f_metab(mp, C_O, C_G, C_L, C_Gln)
+    		call f_metab(mp, C, res)
+    		if (res /= 0) exit
 		else
 		    call set_f_gp(mp,C)
-		    call f_metab(mp, C_O, C_G, C_L, C_Gln)
+		    call f_metab(mp, C, res)
 		endif
 		write(nflog,'(13e12.3)') C_G,mp%A_rate,mp%I_rate,mp%G_rate,mp%Gln_rate,mp%P_rate,mp%L_rate,mp%O_rate,mp%f_G,mp%f_P,mp%HIF1,mp%PDK1,mp%C_P
 		CC(i) = C_G

@@ -25,7 +25,7 @@ integer, parameter :: OXYGEN = 1
 integer, parameter :: GLUCOSE = 2
 integer, parameter :: LACTATE = 3
 integer, parameter :: GLUTAMINE = 4
-integer, parameter :: AMINOACID = 5
+integer, parameter :: OTHERNUTRIENT = 5
 integer, parameter :: DRUG_A = 6
 integer, parameter :: MAX_CELLTYPES = 2
 integer, parameter :: MAX_DRUGTYPES = 2
@@ -56,7 +56,7 @@ type metabolism_type
 	real(REAL_KIND) :: f_Gln
 	real(REAL_KIND) :: recalcable   ! VBA doesn't like logical or integer
 	! amino acids
-!	real(REAL_KIND) :: AA_rate
+	real(REAL_KIND) :: ON_rate
 end type
 
 
@@ -132,12 +132,14 @@ logical :: colony_simulation, use_metabolism
 ! Metabolism parameters
 real(REAL_KIND) :: f_Gu     ! unconstrained fraction of glycosis (r_G) going to make intermediates
 real(REAL_KIND) :: f_Pu     ! unconstrained fraction of pyruvates (r_P) going to make intermediates
+real(REAL_KIND) :: f_Glnu   ! unconstrained fraction of glutamine metabolism (r_Gln) going to make intermediates
 real(REAL_KIND) :: N_GA		! number of ATP molecules generated per glucose molecule in glycosis
 real(REAL_KIND) :: N_GP		! number of pyruvate molecules generated per glucose molecule in glycosis
 real(REAL_KIND) :: N_GI		! number of intermediate molecules generated per glucose molecule in glycosis
 real(REAL_KIND) :: N_PA		! number of ATP molecules generated per pyruvate molecule in pyruvate oxidation
 real(REAL_KIND) :: N_PI		! number of intermediate molecules generated per pyruvate molecule in pyruvate oxidation
 real(REAL_KIND) :: N_PO		! number of O2 molecules consumed per pyruvate molecule in pyruvate oxidation
+real(REAL_KIND) :: N_ONI	! number of intermediate molecules generated per ON molecule
 real(REAL_KIND) :: f_ATPg	! threshold ATP production rate fractions for cell growth
 real(REAL_KIND) :: f_ATPs	! threshold ATP production rate fractions for cell survival
 real(REAL_KIND) :: f_ATPramp	! multiplying factor for ramp start for reducing r_G, r_P
@@ -145,7 +147,6 @@ real(REAL_KIND) :: r_Ag		! threshold ATP production rates for cell growth
 real(REAL_KIND) :: r_As		! threshold ATP production rates for cell survival
 real(REAL_KIND) :: CO_H		! threshold O2 for Ofactor
 real(REAL_KIND) :: CG_H		! threshold glucose for Gfactor
-real(REAL_KIND) :: f_Glnu   ! unconstrained fraction of glutamine metabolism (r_Gln) going to make intermediates
 real(REAL_KIND) :: N_GlnA, N_GlnI, N_GlnO
 real(REAL_KIND) :: Km_citrate 
 ! By cell
@@ -169,7 +170,7 @@ type chemokine_type
 	real(REAL_KIND) :: decay_rate
 	real(REAL_KIND) :: max_cell_rate	! Vmax
 	real(REAL_KIND) :: MM_C0			! Km
-	real(REAL_KIND) :: Hill_N
+	real(REAL_KIND) :: Hill_N           ! N
 	real(REAL_KIND) :: medium_diff_coef	! diffusion coefficient in the medium
 	real(REAL_KIND) :: medium_dlayer	! unstirred layer thickness
 	real(REAL_KIND) :: medium_M			! mass of constituent
